@@ -1,5 +1,4 @@
-import { Markup } from "telegraf";
-import { Keyboard } from "../models/Keyboard";
+import { Keyboard } from "../models/keyboard";
 
 export const ASK_CHOICE = "🤖 Ask";
 export const HELP_CHOICE = "🛟 Help";

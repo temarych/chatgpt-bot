@@ -26,9 +26,9 @@ askScene.command("cancel", handleCancel);
 
 askScene.on(message("text"), async ctx => {
   const response = await openaiService.ask(ctx.message.text);
-  await ctx.reply("🤖 ChatGPT's response:");
-  await ctx.reply(response, {
+  await ctx.reply("🤖 ChatGPT's response:", {
     reply_markup: mainMenuKeyboard.replyMarkup
   });
+  await ctx.reply(response);
   ctx.scene.leave();
 });
