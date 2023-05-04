@@ -6,7 +6,7 @@ import { Redis } from "@telegraf/session/redis";
 import { askScene } from "./scenes/askScene";
 import { combineParagraphs } from "./utils/format";
 import { ASK_CHOICE, HELP_CHOICE, mainMenuKeyboard } from "./keyboards/mainMenuKeyboard";
-import { helpScene } from "./scenes/helpScene";
+import { commands, helpScene } from "./scenes/helpScene";
 import { redisStoreConfig } from "./redis.config";
 
 dotenv.config();
@@ -34,6 +34,11 @@ export const greeting = combineParagraphs([
   "🛠️ Model: GPT 3.5 Turbo",
   "🛟 For help, write /help"
 ]);
+
+bot.telegram.setMyCommands(commands.map(command => ({
+  command: command.name,
+  description: command.description
+})));
 
 bot.start(ctx => {
   ctx.reply(greeting, {
