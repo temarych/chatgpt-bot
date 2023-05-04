@@ -50,25 +50,35 @@ const getQueuePosition = async (jobId: string) => {
   return waitingJobs.findIndex(job => job.id === jobId);
 };
 
+const getWaitMessage = (queuePosition: number) => {
+  return combineParagraphs([
+    "⏳ Please, wait for ChatGPT's response",
+    `⏰ Your position in queue: ${queuePosition + 1}`
+  ]);
+};
+
+const getResponseMessage = (response: string) => {
+  return combineParagraphs([
+    "🤖 ChatGPT's response:", 
+    response
+  ], 1);
+};
+
 askScene.on(message("text"), async ctx => {
   const job = await chatQueue.add("chatJob", {
     question: ctx.message.text,
     userId: ctx.from.id
   });
+
   const queuePosition = await getQueuePosition(job.id as string);
-  const waitMessage = combineParagraphs([
-    "⏳ Please, wait for ChatGPT's response",
-    `⏰ Your position in queue: ${queuePosition + 1}`
-  ]);
+  const waitMessage = getWaitMessage(queuePosition);
   const waitMessageInfo = await ctx.reply(waitMessage);
+  
   const jobResult = await getJobResult(job.id as string);
-  const message = combineParagraphs([
-    "🤖 ChatGPT's response:", 
-    jobResult.response
-  ], 1);
+  const responseMessage = getResponseMessage(jobResult.response);
+
   await ctx.deleteMessage(waitMessageInfo.message_id);
-  await ctx.reply(message, {
-    reply_markup: mainMenuKeyboard.replyMarkup
-  });
+  await ctx.reply(responseMessage, { reply_markup: mainMenuKeyboard.replyMarkup });
+
   ctx.scene.leave();
 });
