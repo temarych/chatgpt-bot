@@ -6,7 +6,7 @@ export class OpenaiService {
       model: "gpt-3.5-turbo",
       messages: [
         { role: "assistant", content: "How can I help you?" },
-        { role: "user", content: `only respond and don't ask anything: ${question}` }
+        { role: "user", content: question }
       ]
     });
     return response.data.choices[0].message?.content as string;

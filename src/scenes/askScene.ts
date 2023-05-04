@@ -1,9 +1,12 @@
 import { Middleware, Scenes } from "telegraf";
 import { message } from "telegraf/filters";
 import { SceneContext } from "telegraf/typings/scenes";
-import { openaiService } from "../services/openaiService";
+import { Job } from "bullmq";
 import { mainMenuKeyboard } from "../keyboards/mainMenuKeyboard";
 import { CANCEL_CHOICE, cancelKeyboard } from "../keyboards/cancelKeyboard";
+import { chatQueue, chatWorker } from "../queues/chatQueue";
+import { IChatJobData, IChatJobResult } from "../models/chat";
+import { combineParagraphs } from "../utils/format";
 
 export const askScene = new Scenes.BaseScene<SceneContext>("AskScene");
 
@@ -24,11 +27,48 @@ const handleCancel: Middleware<SceneContext> = ctx => {
 askScene.hears(CANCEL_CHOICE, handleCancel);
 askScene.command("cancel", handleCancel);
 
+// inefficient: should reconsider in future updates
+const waitForJobResult = (jobId: string) => new Promise<IChatJobResult>(resolve => {
+  const listener = (job: Job<IChatJobData>, result: IChatJobResult) => {
+    if (job.id !== jobId) return;
+    resolve(result);
+    chatWorker.removeListener("completed", listener);
+  };
+  chatWorker.on("completed", listener);
+});
+
+const getJobResult = async (jobId: string) => {
+  const job = await Job.fromId<IChatJobData, IChatJobResult>(chatQueue, jobId);
+  if (!job) throw new Error("Job not found");
+  const isCompleted = await job.isCompleted();
+  if (isCompleted) return job.returnvalue;
+  return await waitForJobResult(jobId);
+};
+
+const getQueuePosition = async (jobId: string) => {
+  const waitingJobs = await chatQueue.getJobs();
+  return waitingJobs.findIndex(job => job.id === jobId);
+};
+
 askScene.on(message("text"), async ctx => {
-  const response = await openaiService.ask(ctx.message.text);
-  await ctx.reply("🤖 ChatGPT's response:", {
+  const job = await chatQueue.add("chatJob", {
+    question: ctx.message.text,
+    userId: ctx.from.id
+  });
+  const queuePosition = await getQueuePosition(job.id as string);
+  const waitMessage = combineParagraphs([
+    "⏳ Please, wait for ChatGPT's response",
+    `⏰ Your position in queue: ${queuePosition + 1}`
+  ]);
+  const waitMessageInfo = await ctx.reply(waitMessage);
+  const jobResult = await getJobResult(job.id as string);
+  const message = combineParagraphs([
+    "🤖 ChatGPT's response:", 
+    jobResult.response
+  ], 1);
+  await ctx.deleteMessage(waitMessageInfo.message_id);
+  await ctx.reply(message, {
     reply_markup: mainMenuKeyboard.replyMarkup
   });
-  await ctx.reply(response);
   ctx.scene.leave();
 });

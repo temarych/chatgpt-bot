@@ -1,11 +1,13 @@
 import { Context, Middleware, Scenes, Telegraf, session } from "telegraf";
 import dotenv from "dotenv";
-import { askScene } from "./scenes/askScene";
 import { SceneContext } from "telegraf/typings/scenes";
-import { combineParagraphs } from "./utils/format";
 import { Configuration, OpenAIApi } from "openai";
+import { Redis } from "@telegraf/session/redis";
+import { askScene } from "./scenes/askScene";
+import { combineParagraphs } from "./utils/format";
 import { ASK_CHOICE, HELP_CHOICE, mainMenuKeyboard } from "./keyboards/mainMenuKeyboard";
 import { helpScene } from "./scenes/helpScene";
+import { redisStoreConfig } from "./redis.config";
 
 dotenv.config();
 
@@ -22,8 +24,9 @@ export const openaiConfig = new Configuration({
 });
 
 export const openai = new OpenAIApi(openaiConfig);
+export const store = Redis<any>({ config: redisStoreConfig });
 
-bot.use(session());
+bot.use(session({ store }));
 bot.use(stage.middleware() as Middleware<Context>);
 
 export const greeting = combineParagraphs([
